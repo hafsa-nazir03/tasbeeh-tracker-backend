@@ -17,7 +17,7 @@ mongoose.connect(process.env.MONGODB_URI)
         console.log("MongoDB not connected");
         console.log(error);
     });
-const PORT = 3000;
+
 
 app.get("/",function(request,response){
 
