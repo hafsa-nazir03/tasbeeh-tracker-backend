@@ -57,7 +57,12 @@ app.post("/signup", async function(request,response) {
             });
     }catch(error){
         console.log(error);
-        response.status(500).json({
+        if(error.code === 11000){
+         return response.status(409).json({
+            message: "This email is already registered. Please use a different email or login.",
+        });
+        }
+       response.status(500).json({
             message: "Something went wrong",
         });
     }
