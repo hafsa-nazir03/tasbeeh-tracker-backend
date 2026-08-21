@@ -7,17 +7,29 @@ const jwt = require("jsonwebtoken");//JWT is a token used when login is successf
 const User = require("./models/User");//we are making signup API Now,and login also
 const app = express();
 app.use(cors());
-app.use(express.json());//express agar frontend say json data aaye to usay read krny ky liye ready rehna
-
-mongoose.connect(process.env.MONGODB_URI)
-    .then(function () {
+let isConnected = false;
+    async function connectDB(){
+        if(isConnected)
+            return;
+        await mongoose.connect(process.env.MONGODB_URI ,{
+            bufferCommands: false,
+            serverSelectionTimeoutMS: 5000,
+            
+        });
+        isConnected = true;
         console.log("MongoDB connected");
-    })
-    .catch(function (error) {
-        console.log("MongoDB not connected");
-        console.log(error);
-    });
-
+    }
+app.use(express.json());//express agar frontend say json data aaye to usay read krny ky liye ready rehna
+app.use(async function(request,response,next){
+    try{
+        await connectDB();
+        next();
+    }catch(error){
+        console.error("DB connection failed",error);
+        response.status(500).json({ message: "Database connection failed" });
+    }
+});
+      
 
 app.get("/",function(request,response){
 
