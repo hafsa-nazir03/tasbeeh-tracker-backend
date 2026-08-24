@@ -5,6 +5,7 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");//to hash the password being saved
 const jwt = require("jsonwebtoken");//JWT is a token used when login is successfull
 const User = require("./models/User");//we are making signup API Now,and login also
+const Tasbeeh = require("./models/Tasbeeh");//to store tasbeeh data in mongodb
 const app = express();
 app.use(cors());
 let isConnected = false;
@@ -151,102 +152,66 @@ app.get("/profile",verifyToken,async function(request,response){//database say n
 });
 
 
-const tasbeeh = [
+app.get("/tasbeeh", verifyToken, async function(request,response){
 
-    {
-
-    id : 1,
-    name : "Astaghfirullah",
-    category : "Morning",
-    target : 100,
-    isDefault : true
-},
-
-{
-
-    id : 2, 
-    name : "Subhanallah",
-    category : "Morning",
-    target : 200,
-    isDefault : true
-
-}, {
-
-    id : 3, 
-    name : "Laillahaillah",
-    category : "Daily",
-    target : 300,
-    isDefault : true
-
-},
-{
-
-    id : 4, 
-    name : "Allahu Akbar",
-    category : "Evening",
-    target : 100,
-    isDefault : true
-
-}, {
-
-    id : 5, 
-    name : "Alhamdulillah",
-    category : "Daily",
-    target : 100,
-    isDefault : true
-
-}
- 
-
-];//hamara temporary database hai yai. 
-
-
-
-app.get("/tasbeeh", verifyToken, function(request,response){
-
-    const userTasbeeh = tasbeeh.filter(function(item){
-        return item.isDefault === true || item.userId == request.user.userID;//filter kr rhy hen taki user ki tasbeeh hi show ho
-    })
+    try{
+        const userTasbeeh = await Tasbeeh.find({
+            $or : [
+                {isDefault : true},
+                {userId : request.user.userID} //currently logged-in user ki MongoDB ID
+            ]
+        });
+        console.log("MongoDB connected");
     setTimeout(function(){//so that the loading state may be visible.
     
    response.json(userTasbeeh);
     },1000);
-    
+
+} catch (error){
+    console.error(error);
+        response.status(500).json({
+            message: "Failed to fetch Tasbeehs"
+        });
+}    
 
 });//sending this to the server
 
 //creating a tasbeeh on user's choice
-app.post("/tasbeeh", verifyToken,function(request,response) {
-
-    //this is the data that user will send to server. SO, we are checking that data first, applying validation checks.
-    const {name , target, category} = request.body;
+app.post("/tasbeeh", verifyToken, async function(request,response) {
+try{
+  const {name , target, category} = request.body;
 
     if(!name || !target || !category || Number(target) <= 0){
         return response.status(400).json({
             message : "Name, target and category are required fields and target must be greater than 0"
         });
     }
-const newTasbeeh = {//pehla code generate nhi kr rha tha id to wo undefined aarha tha to ham ny aesy kr lia(full Object).
-    id : tasbeeh.length + 1,
+const newTasbeeh = await Tasbeeh.create({//pehla code generate nhi kr rha tha id to wo undefined aarha tha to ham ny aesy kr lia(full Object).
     userId : request.user.userID,//userId ko tasbeeh ky sath save krna hai taki user ki tasbeeh save ho
     name : name,
-    target : target,
-    category : category
-};
+    target : Number(target),
+    category : category,
+    isDefault : false
+});
 
-tasbeeh.push(newTasbeeh);
-response.json(newTasbeeh);
+response.status(201).json(newTasbeeh);
+
+}catch(error){
+console.error(error);
+response.status(500).json({
+    message : "Failed to create Tasbeeh"
+});
+}
 
 });
 
 
 //Update:
-app.put("/tasbeeh/:id", verifyToken,function(request,response){
-const id = request.params.id;//frontend say id receive kr rhy hen
+app.put("/tasbeeh/:id", verifyToken,async function(request,response){
+    try{
+      const id = request.params.id;//frontend say id receive kr rhy hen
 
-const tasbeehToUpdate = tasbeeh.find(function(item){//finds the id in array jis ko update krna hai
- return item.id == Number(id);
-});
+const tasbeehToUpdate = await Tasbeeh.findById(id);//mongodb main search kr rha hai aur yai us say aany wali id hai, aur yai object hota hai isi liye .toString() kia hai
 
 if(!tasbeehToUpdate){//agar user aesi tashbeeh bhejy jo ky exist na krti ho to us ky liye error throw ho.
     return response.status(404).json({
@@ -254,25 +219,41 @@ if(!tasbeehToUpdate){//agar user aesi tashbeeh bhejy jo ky exist na krti ho to u
     })
 }
 
-if(!tasbeehToUpdate.isDefault && tasbeehToUpdate.userId !=request.user.userID){ //agar default tasbeeh hai, aur user ki apni tasbeeh hai to wo update kr skta hai wrna allow nhi hoga.    
+if(!tasbeehToUpdate.isDefault && tasbeehToUpdate.userId.toString() !== request.user.userID){ //agar default tasbeeh hai, aur user ki apni tasbeeh hai to wo update kr skta hai wrna allow nhi hoga.    
 return response.status(403).json({
     message : "You are not allowed to update this tasbeeh"
 });
 }
 //uper wala code is liye likha taky verified user hi update kr sky, aur wo bhi apni tasbeeh hi update kr sky.
-const updatedData = request.body;//frontend say jo cheez new lagani hai wo receive kia.
-tasbeehToUpdate.name = updatedData.name;//actual update ho rha hai yahan par
-tasbeehToUpdate.target = updatedData.target;
-tasbeehToUpdate.category = updatedData.category;
-response.json(tasbeehToUpdate);//frontend par usay return kry ga
+const {name, target, category} = request.body;
+
+if (!name || !target || !category || Number(target) <= 0) {
+            return response.status(400).json({
+                message: "Name, target and category are required fields and target must be greater than 0"
+            });
+        }
+
+tasbeehToUpdate.name = name;//actual update ho rha hai yahan par
+tasbeehToUpdate.target = Number(target);
+tasbeehToUpdate.category = category;
+await tasbeehToUpdate.save();//mongodb main tasbeeh data save krta hai
+response.json(tasbeehToUpdate);
+    }catch(error){
+        console.error(error);
+
+        response.status(500).json({
+            message: "Failed to update Tasbeeh"
+        });
+    }
+
+
 });
 
 
-app.delete("/tasbeeh/:id", verifyToken,function(request,response){
-const id = request.params.id;//id lai li ham ny, URL say par wo as String hai is main. 
-const tasbeehToDelete = tasbeeh.find(function(item){//yahan par jahan bhi existing item ki id equal hogi url say aaye id ky, to us ki index return hogi.
-return item.id == Number(id);
-});
+app.delete("/tasbeeh/:id", verifyToken,async function(request,response){
+    try{
+     const id = request.params.id;//id lai li ham ny, URL say par wo as String hai is main. 
+const tasbeehToDelete = await Tasbeeh.findById(id);
 
 if(!tasbeehToDelete){//agr wo id exist na kry to Js returns -1. to us par ham ny message dai dia hai. 
     return response.status(404).json({
@@ -280,29 +261,29 @@ if(!tasbeehToDelete){//agr wo id exist na kry to Js returns -1. to us par ham ny
     })
 }
 
-if(!tasbeehToDelete.isDefault && tasbeehToDelete.userId !=request.user.userID){ //agar default tasbeeh hai, aur user ki apni tasbeeh hai to wo update kr skta hai wrna allow nhi hoga.    
+if(!tasbeehToDelete.isDefault && tasbeehToDelete.userId.toString() !== request.user.userID){ //agar default tasbeeh hai, aur user ki apni tasbeeh hai to wo update kr skta hai wrna allow nhi hoga.    
 return response.status(403).json({
     message : "You are not allowed to delete this tasbeeh"
 });
 }
-
-const index = tasbeeh.findIndex(function(item){
-    return item.id == Number(id);
+await Tasbeeh.findByIdAndDelete(id);
+response.json({
+    message : "Tasbeeh deleted successfully"
 });
+    }catch(error){
+        console.error(error);
+        response.status(500).json({
+    message : "Failed to delete Tasbeeh"
+    });
+    }
 
-tasbeeh.splice(index,1);
-
-response.json({//frontend par nazar aaye ga. 
-    message: "Tasbeeh deleted successfully"
-});
 });
 
 //extra for counter
-app.get("/tasbeeh/:id", verifyToken,function(request,response){
-const id = Number(request.params.id);
-const foundTasbeeh = tasbeeh.find(function(item){
-        return item.id == id;
-    });
+app.get("/tasbeeh/:id", verifyToken,async function(request,response){
+    try{
+        const id = Number(request.params.id);
+        const foundTasbeeh = tasbeeh.findById(id);
 
     if(!foundTasbeeh){
         return response.status(404).json({
@@ -310,13 +291,20 @@ const foundTasbeeh = tasbeeh.find(function(item){
         });
     }
 
-    if(!foundTasbeeh.isDefault && foundTasbeeh.userId != request.user.userID){ //agar default tasbeeh hai, aur user ki apni tasbeeh hai to wo update kr skta hai wrna allow nhi hoga.    
+    if(!foundTasbeeh.isDefault && foundTasbeeh.userId.toString() !== request.user.userID){ //agar default tasbeeh hai, aur user ki apni tasbeeh hai to wo update kr skta hai wrna allow nhi hoga.    
 return response.status(403).json({
     message : "You are not allowed to view this tasbeeh"
 });
 
 }
    response.json(foundTasbeeh);
+    }catch(error){
+        console.error(error);
+        response.status(500).json({
+    message : "Failed to fetch Tasbeeh"
+    });
+    }
+
 });
 
 module.exports = app;
