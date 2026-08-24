@@ -282,8 +282,8 @@ response.json({
 //extra for counter
 app.get("/tasbeeh/:id", verifyToken,async function(request,response){
     try{
-        const id = Number(request.params.id);
-        const foundTasbeeh = Tasbeeh.findById(id);
+        const id = request.params.id;
+        const foundTasbeeh = await Tasbeeh.findById(id);
 
     if(!foundTasbeeh){
         return response.status(404).json({
