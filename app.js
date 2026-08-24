@@ -283,7 +283,7 @@ response.json({
 app.get("/tasbeeh/:id", verifyToken,async function(request,response){
     try{
         const id = Number(request.params.id);
-        const foundTasbeeh = tasbeeh.findById(id);
+        const foundTasbeeh = Tasbeeh.findById(id);
 
     if(!foundTasbeeh){
         return response.status(404).json({
