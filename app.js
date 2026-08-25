@@ -4,12 +4,13 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");//to hash the password being saved
 const jwt = require("jsonwebtoken");//JWT is a token used when login is successfull
+const Dua = require("./models/Dua");
 const User = require("./models/User");//we are making signup API Now,and login also
 const Tasbeeh = require("./models/Tasbeeh");//to store tasbeeh data in mongodb
 const app = express();
 app.use(cors());
 let isConnected = false;
-    async function connectDB(){
+    async function connectDB(){ 
         if(isConnected)
             return;
         await mongoose.connect(process.env.MONGODB_URI ,{
@@ -302,6 +303,132 @@ return response.status(403).json({
         console.error(error);
         response.status(500).json({
     message : "Failed to fetch Tasbeeh"
+    });
+    }
+
+});
+
+//2nd Source CRUD Operations
+app.get("/duas", verifyToken, async function(request,response){
+
+    try{
+        const userDuas = await Dua.find({
+        userId : request.user.userID //currently logged-in user ki MongoDB ID
+            
+        });
+    setTimeout(function(){//so that the loading state may be visible.
+    
+   response.json(userDuas);
+    },1000);
+
+} catch (error){
+    console.error(error);
+        response.status(500).json({
+            message: "Failed to fetch Duas"
+        });
+}    
+
+});//sending this to the server
+
+//add dua:
+app.post("/duas", verifyToken, async function(request,response) {
+try{
+  const {title ,arabicText, translation, category} = request.body;
+
+    if(!title || !arabicText || !translation || !category){
+        return response.status(400).json({
+            message : "Title, Arabic text, translation and category are required fields"
+        });
+    }
+const newDua = await Dua.create({//pehla code generate nhi kr rha tha id to wo undefined aarha tha to ham ny aesy kr lia(full Object).
+    userId : request.user.userID,//userId ko tasbeeh ky sath save krna hai taki user ki tasbeeh save ho
+    title : title,
+    arabicText : arabicText,
+    translation : translation,
+    category : category
+});
+
+response.status(201).json(newDua);
+
+}catch(error){
+console.error(error);
+response.status(500).json({
+    message : "Failed to create Dua"
+});
+}
+
+});
+
+//Update Dua
+app.put("/duas/:id", verifyToken,async function(request,response){
+    try{
+      const id = request.params.id;//frontend say id receive kr rhy hen
+
+const duaToUpdate = await Dua.findById(id);//mongodb main search kr rha hai aur yai us say aany wali id hai, aur yai object hota hai isi liye .toString() kia hai
+
+if(!duaToUpdate){//agar user aesi tashbeeh bhejy jo ky exist na krti ho to us ky liye error throw ho.
+    return response.status(404).json({
+        message: "Dua not found"
+    })
+}
+
+if(duaToUpdate.userId.toString() !== request.user.userID){ //agar default tasbeeh hai, aur user ki apni tasbeeh hai to wo update kr skta hai wrna allow nhi hoga.    
+return response.status(403).json({
+    message : "You are not allowed to update this dua"
+});
+}
+//uper wala code is liye likha taky verified user hi update kr sky, aur wo bhi apni tasbeeh hi update kr sky.
+const {title ,arabicText, translation, category} = request.body;
+
+if (!title || !arabicText || !translation || !category) {
+            return response.status(400).json({
+                message: "Title, Arabic text, translation and category are required fields"
+            });
+        }
+
+duaToUpdate.title = title;//actual update ho rha hai yahan par
+duaToUpdate.arabicText = arabicText;
+duaToUpdate.translation = translation;
+duaToUpdate.category = category;
+await duaToUpdate.save();//mongodb main tasbeeh data save krta hai
+response.json(duaToUpdate);
+
+    }catch(error){
+        console.error(error);
+
+        response.status(500).json({
+            message: "Failed to update Dua"
+        });
+    }
+
+
+});
+
+//Delete Dua:
+app.delete("/duas/:id", verifyToken,async function(request,response){
+    try{
+     const id = request.params.id;//id lai li ham ny, URL say par wo as String hai is main. 
+const duaToDelete = await Dua.findById(id);
+
+if(!duaToDelete){//agr wo id exist na kry to Js returns -1. to us par ham ny message dai dia hai. 
+    return response.status(404).json({
+        message: "Dua not found"
+    })
+}
+
+if(duaToDelete.userId.toString() !== request.user.userID){ //agar default tasbeeh hai, aur user ki apni tasbeeh hai to wo update kr skta hai wrna allow nhi hoga.    
+return response.status(403).json({
+    message : "You are not allowed to delete this dua"
+});
+}
+await Dua.findByIdAndDelete(id);
+response.json({
+    message : "Dua deleted successfully"
+});
+    }catch(error){
+        console.error(error);
+        response.status(500).json({
+    message : "Failed to delete Dua"
     });
     }
 
