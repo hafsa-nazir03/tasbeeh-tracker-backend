@@ -333,18 +333,17 @@ app.get("/duas", verifyToken, async function(request,response){
 //add dua:
 app.post("/duas", verifyToken, async function(request,response) {
 try{
-  const {title ,arabicText, translation, category} = request.body;
+  const {title ,arabicText, category} = request.body;
 
-    if(!title || !arabicText || !translation || !category){
+    if(!title || !arabicText || !category){
         return response.status(400).json({
-            message : "Title, Arabic text, translation and category are required fields"
+            message : "Title, Arabic text, and category are required fields"
         });
     }
 const newDua = await Dua.create({//pehla code generate nhi kr rha tha id to wo undefined aarha tha to ham ny aesy kr lia(full Object).
     userId : request.user.userID,//userId ko tasbeeh ky sath save krna hai taki user ki tasbeeh save ho
     title : title,
     arabicText : arabicText,
-    translation : translation,
     category : category
 });
 
@@ -378,17 +377,16 @@ return response.status(403).json({
 });
 }
 //uper wala code is liye likha taky verified user hi update kr sky, aur wo bhi apni tasbeeh hi update kr sky.
-const {title ,arabicText, translation, category} = request.body;
+const {title ,arabicText, category} = request.body;
 
-if (!title || !arabicText || !translation || !category) {
+if (!title || !arabicText || !category) {
             return response.status(400).json({
-                message: "Title, Arabic text, translation and category are required fields"
+                message: "Title, Arabic text, and category are required fields"
             });
         }
 
 duaToUpdate.title = title;//actual update ho rha hai yahan par
 duaToUpdate.arabicText = arabicText;
-duaToUpdate.translation = translation;
 duaToUpdate.category = category;
 await duaToUpdate.save();//mongodb main tasbeeh data save krta hai
 response.json(duaToUpdate);
