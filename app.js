@@ -446,9 +446,16 @@ response.json({
 app.get("/admin/dashboard",verifyToken,verifyAdmin,async function(request,response){
     try{
         const totalUsers = await User.countDocuments();
+        const totalTasbeehs = await Tasbeeh.countDocuments();
+        const totalDuas = await Dua.countDocuments();
+        const recentUsers = await User.find().select("-_id name email role").sort({_id: -1}).limit(5);
+
         response.json({
             message : "Welcome Admin",
-            totalUsers : totalUsers
+            totalUsers : totalUsers,
+            totalTasbeehs : totalTasbeehs,
+            totalDuas : totalDuas,
+            recentUsers : recentUsers
         });
 
     }catch(error){
