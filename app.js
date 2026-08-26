@@ -91,7 +91,7 @@ if(!isMatch){//agar match nhi hua to error throw kro
     });
 }
 
-const token = jwt.sign({userID : user._id,//gies latest data, by id even if email waghera change hojaye
+const token = jwt.sign({userID : user._id, role : user.role, //gies latest data, by id even if email waghera change hojaye
       
      },
       process.env.JWT_SECRET,
@@ -131,6 +131,16 @@ function verifyToken(request,response,next){
            });
         }
     
+}
+
+//function to verify admin:
+function verifyAdmin(request,response,next){
+    if(request.user.role !== "admin"){
+        return response.status(403).json({
+            message : "Admin access required"
+        });
+    }
+    next();
 }
 
 
@@ -430,6 +440,23 @@ response.json({
     });
     }
 
+});
+
+//admin protected route:
+app.get("/admin/dashboard",verifyToken,verifyAdmin,async function(request,response){
+    try{
+        const totalUsers = await User.countDocuments();
+        response.json({
+            message : "Welcome Admin",
+            totalUsers : totalUsers
+        });
+
+    }catch(error){
+        console.error(error);
+        response.status(500).json({
+            message : "Failed to load Admin's Dashboard"
+        });
+    }
 });
 
 module.exports = app;
